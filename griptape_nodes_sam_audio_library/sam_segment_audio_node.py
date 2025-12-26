@@ -351,14 +351,9 @@ class SamSegmentAudioNode(SuccessFailureNode):
             residual_artifact = self._tensor_to_audio_artifact(residual_tensor, sample_rate)
 
             # Set outputs
-            self.set_parameter_value("target_audio", target_artifact)
-            self.publish_update_to_parameter("target_audio", target_artifact)
-
-            self.set_parameter_value("residual_audio", residual_artifact)
-            self.publish_update_to_parameter("residual_audio", residual_artifact)
-
-            self.set_parameter_value("sample_rate", sample_rate)
-            self.publish_update_to_parameter("sample_rate", sample_rate)
+            self.parameter_output_values["target_audio"] = target_artifact
+            self.parameter_output_values["residual_audio"] = residual_artifact
+            self.parameter_output_values["sample_rate"] = sample_rate
 
             self._set_status_results(
                 was_successful=True,
