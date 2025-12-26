@@ -1,0 +1,28 @@
+{
+  "name": "Griptape Nodes SAM Audio Library",
+  "library_schema_version": "0.3.0",
+  "advanced_library_path": "sam_audio_library_advanced.py",
+  "metadata": {
+    "author": "Griptape, Inc.",
+    "description": "SAM Audio sound isolation for Griptape Nodes.",
+    "library_version": "0.1.0",
+    "engine_version": "0.60.0",
+    "tags": ["Griptape", "AI", "Audio"],
+    "dependencies": {
+      "pip_dependencies": [
+        "pygit2"
+      ]
+    }
+  },
+  "categories": [
+    {
+      "audio/segmentation": {
+        "color": "border-blue-500",
+        "title": "Audio/Segmentation",
+        "description": "Audio segmentation nodes",
+        "icon": "layers"
+      }
+    }
+  ],
+  "nodes": []
+}
