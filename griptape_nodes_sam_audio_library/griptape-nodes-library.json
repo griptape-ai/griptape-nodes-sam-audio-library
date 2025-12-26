@@ -12,9 +12,9 @@
       "pip_dependencies": [
         "pygit2",
         "xformers",
-        "torch",
-        "torchaudio",
-        "torchvision",
+        "torch<2.9",
+        "torchaudio<2.9",
+        "torchvision<0.24",
         "torchdiffeq",
         "transformers>=4.54.0",
         "numpy",
