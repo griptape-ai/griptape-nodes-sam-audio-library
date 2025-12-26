@@ -23,8 +23,8 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         logger.info("Initializing sam-audio submodule...")
         sam_audio_path = self._init_sam_audio_submodule()
 
-        logger.info("Installing sam-audio dependencies...")
-        self._install_sam_audio_dependencies(sam_audio_path)
+        # logger.info("Installing sam-audio dependencies...")
+        # self._install_sam_audio_dependencies(sam_audio_path)
 
     def after_library_nodes_loaded(self, library_data: LibrarySchema, library: Library) -> None:
         """Called after all nodes have been loaded from the library."""
@@ -77,6 +77,8 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
 
         logger.info(f"Installing sam-audio from {sam_audio_path}...")
         subprocess.check_call([
-            sys.executable, "-m", "pip", "install", str(sam_audio_path)
+            sys.executable, "-m", "pip", "install",
+            "--extra-index-url", "https://download.pytorch.org/whl/cu128",
+            str(sam_audio_path)
         ])
         logger.info("sam-audio installed successfully")
