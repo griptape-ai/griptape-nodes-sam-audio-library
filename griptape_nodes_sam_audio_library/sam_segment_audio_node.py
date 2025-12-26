@@ -6,14 +6,21 @@ import torchaudio
 
 from griptape_nodes.exe_types.core_types import Parameter, ParameterMode
 from griptape_nodes.exe_types.node_types import SuccessFailureNode
-from griptape.artifacts import AudioArtifact
+from griptape_nodes.exe_types.param_components.huggingface.huggingface_repo_parameter import HuggingFaceRepoParameter
+from griptape_nodes.traits.options import Options
+from griptape.artifacts import AudioArtifact, AudioUrlArtifact
 
 logger = logging.getLogger("sam_audio_library")
 
-MODEL_CHOICES = [
+MODEL_REPO_IDS = [
     "facebook/sam-audio-small",
     "facebook/sam-audio-base",
     "facebook/sam-audio-large",
+]
+
+ANCHOR_TOKEN_CHOICES = [
+    "+",
+    "-",
 ]
 
 
@@ -27,19 +34,13 @@ class SamSegmentAudioNode(SuccessFailureNode):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        # Model selection
-        self.add_parameter(
-            Parameter(
-                name="model",
-                allowed_modes={ParameterMode.PROPERTY},
-                type="str",
-                default_value="facebook/sam-audio-large",
-                tooltip="SAM Audio model to use.",
-                ui_options={
-                    "options": MODEL_CHOICES,
-                },
-            )
+        # Model selection using HuggingFace repo parameter
+        self._model_repo_parameter = HuggingFaceRepoParameter(
+            self,
+            repo_ids=MODEL_REPO_IDS,
+            parameter_name="model",
         )
+        self._model_repo_parameter.add_input_parameters()
 
         # Input audio
         self.add_parameter(
@@ -47,6 +48,7 @@ class SamSegmentAudioNode(SuccessFailureNode):
                 name="audio",
                 allowed_modes={ParameterMode.INPUT},
                 type="AudioArtifact",
+                input_types=["AudioArtifact", "AudioUrlArtifact"],
                 default_value=None,
                 tooltip="Input audio to segment.",
             )
@@ -66,11 +68,38 @@ class SamSegmentAudioNode(SuccessFailureNode):
         # Anchors for span prompting
         self.add_parameter(
             Parameter(
+                name="use_anchors",
+                allowed_modes={ParameterMode.PROPERTY},
+                type="bool",
+                default_value=False,
+                tooltip="Enable span/anchor prompting to specify time ranges where the target sound occurs.",
+            )
+        )
+
+        self.add_parameter(
+            Parameter(
+                name="anchor_token",
+                allowed_modes={ParameterMode.INPUT, ParameterMode.PROPERTY},
+                type="str",
+                default_value="+",
+                tooltip="Anchor token: '+' to include the sound in the span, '-' to exclude it.",
+                traits={Options(choices=ANCHOR_TOKEN_CHOICES)},
+                ui_options={
+                    "hide": True,
+                },
+            )
+        )
+
+        self.add_parameter(
+            Parameter(
                 name="anchor_start",
                 allowed_modes={ParameterMode.INPUT, ParameterMode.PROPERTY},
                 type="float",
-                default_value=-1.0,
-                tooltip="Start time in seconds for span prompting (-1 to disable).",
+                default_value=0.0,
+                tooltip="Start time in seconds for span prompting.",
+                ui_options={
+                    "hide": True,
+                },
             )
         )
 
@@ -79,8 +108,11 @@ class SamSegmentAudioNode(SuccessFailureNode):
                 name="anchor_end",
                 allowed_modes={ParameterMode.INPUT, ParameterMode.PROPERTY},
                 type="float",
-                default_value=-1.0,
-                tooltip="End time in seconds for span prompting (-1 to disable).",
+                default_value=1.0,
+                tooltip="End time in seconds for span prompting.",
+                ui_options={
+                    "hide": True,
+                },
             )
         )
 
@@ -103,8 +135,7 @@ class SamSegmentAudioNode(SuccessFailureNode):
                 default_value=1,
                 tooltip="Number of candidates to generate and rerank. Higher values improve quality but increase latency (1-8).",
                 ui_options={
-                    "min": 1,
-                    "max": 8,
+                    "slider": {"min_val": 1, "max_val": 8, "step": 1},
                 },
             )
         )
@@ -145,6 +176,35 @@ class SamSegmentAudioNode(SuccessFailureNode):
             result_details_placeholder="Segmentation result details will appear here.",
         )
 
+    def _set_parameter_visibility(self, names: str | list[str], *, visible: bool) -> None:
+        """Sets the visibility of one or more parameters.
+
+        Args:
+            names: The parameter name(s) to update.
+            visible: Whether to show (True) or hide (False) the parameters.
+        """
+        if isinstance(names, str):
+            names = [names]
+
+        for name in names:
+            parameter = self.get_parameter_by_name(name)
+            if parameter is not None:
+                ui_options = parameter.ui_options
+                ui_options["hide"] = not visible
+                parameter.ui_options = ui_options
+
+    def after_value_set(self, parameter: Parameter, value) -> None:
+        """Handle parameter value changes to update anchor/predict_spans visibility."""
+        if parameter.name == "use_anchors":
+            anchor_params = ["anchor_token", "anchor_start", "anchor_end"]
+            self._set_parameter_visibility(anchor_params, visible=value)
+            # Hide predict_spans when using manual anchors (they serve similar purposes)
+            self._set_parameter_visibility("predict_spans", visible=not value)
+
+    def validate_before_node_run(self) -> list[Exception] | None:
+        """Validate that the HuggingFace model is available."""
+        return self._model_repo_parameter.validate_before_node_run()
+
     def _get_device(self) -> str:
         """Get the appropriate device for inference."""
         if torch.cuda.is_available():
@@ -171,19 +231,29 @@ class SamSegmentAudioNode(SuccessFailureNode):
 
         logger.info(f"Model loaded on device: {device}")
 
-    def _audio_artifact_to_tensor(self, artifact: AudioArtifact) -> torch.Tensor:
-        """Convert an AudioArtifact to a torch tensor."""
-        buffer = io.BytesIO(artifact.value)
-        waveform, sample_rate = torchaudio.load(buffer)
+    def _audio_artifact_to_tensor(self, artifact: AudioArtifact | AudioUrlArtifact) -> tuple[torch.Tensor, int]:
+        """Convert an AudioArtifact or AudioUrlArtifact to a torch tensor."""
+        if isinstance(artifact, AudioUrlArtifact):
+            # Load directly from URL
+            waveform, sample_rate = torchaudio.load(artifact.value)
+        else:
+            # Load from bytes
+            buffer = io.BytesIO(artifact.value)
+            waveform, sample_rate = torchaudio.load(buffer)
         return waveform, sample_rate
 
     def _build_anchors(self) -> list | None:
-        """Build anchors list from start/end parameters."""
+        """Build anchors list from parameters."""
+        use_anchors = self.get_parameter_value("use_anchors")
+        if not use_anchors:
+            return None
+
+        anchor_token = self.get_parameter_value("anchor_token")
         anchor_start = self.get_parameter_value("anchor_start")
         anchor_end = self.get_parameter_value("anchor_end")
 
-        if anchor_start >= 0 and anchor_end >= 0 and anchor_end > anchor_start:
-            return [[["+", anchor_start, anchor_end]]]
+        if anchor_end > anchor_start:
+            return [[[anchor_token, anchor_start, anchor_end]]]
 
         return None
 
@@ -245,8 +315,9 @@ class SamSegmentAudioNode(SuccessFailureNode):
             anchors = self._build_anchors()
 
             if anchors:
+                token, start, end = anchors[0][0]
                 self.status_component.append_to_result_details(
-                    f"Using span prompting: {anchors[0][0][1]:.2f}s - {anchors[0][0][2]:.2f}s"
+                    f"Using span prompting: token='{token}', {start:.2f}s - {end:.2f}s"
                 )
 
             self.status_component.append_to_result_details(f"Description: {description or '(none)'}")
