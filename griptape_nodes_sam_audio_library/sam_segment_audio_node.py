@@ -234,12 +234,13 @@ class SamSegmentAudioNode(SuccessFailureNode):
     def _audio_artifact_to_tensor(self, artifact: AudioArtifact | AudioUrlArtifact) -> tuple[torch.Tensor, int]:
         """Convert an AudioArtifact or AudioUrlArtifact to a torch tensor."""
         if isinstance(artifact, AudioUrlArtifact):
-            # Load directly from URL
-            waveform, sample_rate = torchaudio.load(artifact.value)
+            # Download URL content to bytes, then load from buffer
+            audio_bytes = artifact.to_bytes()
+            buffer = io.BytesIO(audio_bytes)
         else:
-            # Load from bytes
+            # Load from bytes directly
             buffer = io.BytesIO(artifact.value)
-            waveform, sample_rate = torchaudio.load(buffer)
+        waveform, sample_rate = torchaudio.load(buffer)
         return waveform, sample_rate
 
     def _build_anchors(self) -> list | None:
