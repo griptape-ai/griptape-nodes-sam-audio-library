@@ -24,5 +24,15 @@
       }
     }
   ],
-  "nodes": []
+  "nodes": [
+    {
+      "class_name": "SamSegmentAudioNode",
+      "file_path": "sam_segment_audio_node.py",
+      "metadata": {
+        "category": "audio/segmentation",
+        "description": "Isolate specific sounds from audio using text, visual, or temporal prompts.",
+        "display_name": "SAM Segment Audio"
+      }
+    }
+  ]
 }
