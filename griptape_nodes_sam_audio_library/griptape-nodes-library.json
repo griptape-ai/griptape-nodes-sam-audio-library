@@ -16,7 +16,6 @@
         "torch",
         "torchaudio",
         "torchvision",
-        "torchcodec",
         "torchdiffeq",
         "transformers>=4.54.0",
         "numpy",
@@ -25,8 +24,7 @@
         "audiobox_aesthetics",
         "dacvae@git+https://github.com/facebookresearch/dacvae.git",
         "imagebind@git+https://github.com/facebookresearch/ImageBind.git",
-        "laion-clap@git+https://github.com/lematt1991/CLAP.git",
-        "perception-models@git+https://github.com/facebookresearch/perception_models@unpin-deps"
+        "laion-clap@git+https://github.com/lematt1991/CLAP.git"
       ],
       "pip_install_flags": [
         "--extra-index-url",
