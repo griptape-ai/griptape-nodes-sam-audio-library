@@ -158,6 +158,51 @@ Summary: Mock torchcodec for Windows
     logger.info("torchcodec mock package created successfully")
 
 
+def _patch_sam_audio_for_new_huggingface_hub() -> None:
+    """Patch sam_audio BaseModel to be compatible with huggingface-hub >= 1.0."""
+    try:
+        from sam_audio.model.base import BaseModel
+    except ImportError:
+        logger.warning("sam_audio not yet importable, skipping huggingface-hub compatibility patch")
+        return
+
+    original_from_pretrained = BaseModel._from_pretrained
+
+    @classmethod
+    def patched_from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        cache_dir=None,
+        force_download=False,
+        proxies=None,
+        resume_download=None,
+        local_files_only=False,
+        token=None,
+        map_location: str = "cpu",
+        strict: bool = True,
+        revision=None,
+        **model_kwargs,
+    ):
+        return original_from_pretrained.__func__(
+            cls,
+            model_id=model_id,
+            cache_dir=cache_dir or None,
+            force_download=force_download or False,
+            proxies=proxies or None,
+            resume_download=resume_download if resume_download is not None else False,
+            local_files_only=local_files_only or False,
+            token=token or None,
+            map_location=map_location or "cpu",
+            strict=strict if strict is not None else True,
+            revision=revision or None,
+            **model_kwargs,
+        )
+
+    BaseModel._from_pretrained = patched_from_pretrained
+    logger.info("Patched sam_audio BaseModel for huggingface-hub >= 1.0 compatibility")
+
+
 class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
     """Advanced library implementation for SAM Audio."""
 
@@ -177,6 +222,9 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
 
         # Install sam_audio package from submodule (--no-deps since JSON handles dependencies)
         self._install_sam_audio(sam_audio_path)
+
+        # Patch sam_audio for compatibility with huggingface-hub >= 1.0
+        _patch_sam_audio_for_new_huggingface_hub()
 
     def after_library_nodes_loaded(self, library_data: LibrarySchema, library: Library) -> None:
         """Called after all nodes have been loaded from the library."""
