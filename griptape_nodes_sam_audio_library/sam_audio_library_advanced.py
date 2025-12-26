@@ -203,6 +203,29 @@ def _patch_sam_audio_for_new_huggingface_hub() -> None:
     logger.info("Patched sam_audio BaseModel for huggingface-hub >= 1.0 compatibility")
 
 
+def _clear_cached_modules() -> None:
+    """Clear cached modules so they get re-imported from the library venv.
+
+    This is necessary because huggingface_hub and transformers may be imported
+    by the main griptape-nodes engine BEFORE the library venv is added to sys.path.
+    Once cached in sys.modules, Python reuses them regardless of path order.
+    """
+    modules_to_clear = []
+
+    # Find all huggingface_hub and transformers modules to clear
+    for module_name in list(sys.modules.keys()):
+        if module_name == "huggingface_hub" or module_name.startswith("huggingface_hub."):
+            modules_to_clear.append(module_name)
+        elif module_name == "transformers" or module_name.startswith("transformers."):
+            modules_to_clear.append(module_name)
+
+    if modules_to_clear:
+        logger.info(f"Clearing {len(modules_to_clear)} cached modules to use library venv versions")
+        for module_name in modules_to_clear:
+            del sys.modules[module_name]
+        logger.info("Cleared modules: huggingface_hub.*, transformers.*")
+
+
 class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
     """Advanced library implementation for SAM Audio."""
 
@@ -210,6 +233,10 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         """Called before any nodes are loaded from the library."""
         msg = f"Starting to load nodes for '{library_data.name}' library..."
         logger.info(msg)
+
+        # Clear cached modules so we use the library venv versions
+        # This MUST happen before any imports of huggingface_hub or transformers
+        _clear_cached_modules()
 
         # Set up torchcodec mock for Windows before any sam_audio imports
         _setup_torchcodec_mock()

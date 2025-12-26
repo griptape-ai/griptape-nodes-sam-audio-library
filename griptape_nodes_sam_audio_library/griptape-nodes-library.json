@@ -12,7 +12,6 @@
       "pip_dependencies": [
         "pygit2",
         "xformers",
-        "huggingface-hub<1.0",
         "torch",
         "torchaudio",
         "torchvision",
