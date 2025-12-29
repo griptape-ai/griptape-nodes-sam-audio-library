@@ -34,7 +34,7 @@
       "required": {
         "compute": [["cuda"], "has_any"]
       }
-    },
+    }
   },
   "categories": [
     {
