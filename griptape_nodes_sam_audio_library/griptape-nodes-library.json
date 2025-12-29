@@ -5,7 +5,7 @@
   "metadata": {
     "author": "Griptape, Inc.",
     "description": "SAM Audio sound isolation for Griptape Nodes.",
-    "library_version": "0.1.0",
+    "library_version": "0.1.1",
     "engine_version": "0.66.2",
     "tags": ["Griptape", "AI", "Audio"],
     "dependencies": {
@@ -29,7 +29,12 @@
         "--extra-index-url",
         "https://download.pytorch.org/whl/cu128"
       ]
-    }
+    },
+    "resources": {
+      "required": {
+        "compute": [["cuda"], "has_any"]
+      }
+    },
   },
   "categories": [
     {
