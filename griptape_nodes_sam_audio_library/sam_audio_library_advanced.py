@@ -236,11 +236,16 @@ def _clear_cached_modules() -> None:
     # Patch version check to bypass transformers' huggingface_hub version requirement
     _patch_transformers_version_check()
 
-    # Only clear huggingface_hub and transformers - nothing else!
-    # Clearing importlib._bootstrap or sys.path_importer_cache breaks Python's import system
+    # Clear modules that may have been imported from the main venv before
+    # the library venv was added to sys.path
+    # Note: Don't clear importlib._bootstrap or sys.path_importer_cache - that breaks Python
     prefixes_to_clear = [
         "huggingface_hub",
         "transformers",
+        "torch",
+        "torchaudio",
+        "torchvision",
+        "xformers",
     ]
 
     modules_to_clear = []
