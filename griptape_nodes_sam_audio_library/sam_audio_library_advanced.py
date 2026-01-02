@@ -275,6 +275,22 @@ def _clear_cached_modules() -> None:
         logger.info(f"Cleared module prefixes: {', '.join(prefixes_to_clear)}")
 
 
+def _add_torch_dll_directory() -> None:
+    """Add torch's lib directory to DLL search path on Windows.
+
+    This is required on some Windows systems where the torch DLLs aren't
+    automatically found when loading torchaudio's native extensions.
+    """
+    if sys.platform != "win32":
+        return
+
+    import os
+    torch_lib = _get_library_site_packages() / "torch" / "lib"
+    if torch_lib.exists():
+        os.add_dll_directory(str(torch_lib))
+        logger.info(f"Added torch DLL directory: {torch_lib}")
+
+
 class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
     """Advanced library implementation for SAM Audio."""
 
@@ -282,6 +298,9 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         """Called before any nodes are loaded from the library."""
         msg = f"Starting to load nodes for '{library_data.name}' library..."
         logger.info(msg)
+
+        # Add torch DLL directory FIRST on Windows (needed for torchaudio)
+        _add_torch_dll_directory()
 
         # Clear cached modules so we use the library venv versions
         # This MUST happen before any imports of huggingface_hub or transformers
