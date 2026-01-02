@@ -232,32 +232,15 @@ def _clear_cached_modules() -> None:
     This is necessary because huggingface_hub and transformers may be imported
     by the main griptape-nodes engine BEFORE the library venv is added to sys.path.
     Once cached in sys.modules, Python reuses them regardless of path order.
-
-    We also clear importlib.metadata caches because transformers uses it for
-    version checking, and it caches package distributions from the wrong venv.
     """
-    # Patch version check FIRST before clearing modules
+    # Patch version check to bypass transformers' huggingface_hub version requirement
     _patch_transformers_version_check()
 
-    # Clear importlib.metadata cache so version checks use library venv packages
-    try:
-        import importlib.metadata
-        # Clear the distributions cache
-        if hasattr(importlib.metadata, '_adapters'):
-            # Python 3.11+
-            importlib.metadata._adapters.wrap_mtime_invalidator.cache_clear()
-        # Clear sys.path_importer_cache entries that might cache wrong locations
-        sys.path_importer_cache.clear()
-        logger.info("Cleared importlib.metadata and sys.path_importer_cache")
-    except Exception as e:
-        logger.warning(f"Could not clear importlib.metadata cache: {e}")
-
-    # Prefixes of modules to clear
+    # Only clear huggingface_hub and transformers - nothing else!
+    # Clearing importlib._bootstrap or sys.path_importer_cache breaks Python's import system
     prefixes_to_clear = [
         "huggingface_hub",
         "transformers",
-        "importlib.metadata",
-        "importlib._bootstrap",
     ]
 
     modules_to_clear = []
