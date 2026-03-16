@@ -1,0 +1,60 @@
+{
+  "name": "Griptape Nodes SAM Audio Library",
+  "library_schema_version": "0.3.0",
+  "advanced_library_path": "sam_audio_library_advanced.py",
+  "metadata": {
+    "author": "Griptape, Inc.",
+    "description": "SAM Audio sound isolation for Griptape Nodes.",
+    "library_version": "0.1.1",
+    "engine_version": "0.66.2",
+    "tags": ["Griptape", "AI", "Audio"],
+    "dependencies": {
+      "pip_dependencies": [
+        "pygit2",
+        "xformers",
+        "torch<2.9",
+        "torchaudio<2.9",
+        "torchvision<0.24",
+        "torchdiffeq",
+        "transformers>=4.54.0",
+        "numpy",
+        "einops",
+        "pydub",
+        "audiobox_aesthetics",
+        "dacvae@git+https://github.com/facebookresearch/dacvae.git",
+        "imagebind@git+https://github.com/facebookresearch/ImageBind.git",
+        "laion-clap@git+https://github.com/lematt1991/CLAP.git"
+      ],
+      "pip_install_flags": [
+        "--extra-index-url",
+        "https://download.pytorch.org/whl/cu128"
+      ]
+    },
+    "resources": {
+      "required": {
+        "compute": [["cuda"], "has_any"]
+      }
+    }
+  },
+  "categories": [
+    {
+      "audio/segmentation": {
+        "color": "border-blue-500",
+        "title": "Audio/Segmentation",
+        "description": "Audio segmentation nodes",
+        "icon": "layers"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "class_name": "SamSegmentAudioNode",
+      "file_path": "sam_segment_audio_node.py",
+      "metadata": {
+        "category": "audio/segmentation",
+        "description": "Isolate specific sounds from audio using text, visual, or temporal prompts.",
+        "display_name": "SAM Segment Audio"
+      }
+    }
+  ]
+}

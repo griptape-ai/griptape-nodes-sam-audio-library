@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import pygit2
-
 from griptape_nodes.node_library.advanced_node_library import AdvancedNodeLibrary
 from griptape_nodes.node_library.library_registry import Library, LibrarySchema
 
@@ -45,18 +44,13 @@ def _ensure_pip_installed() -> None:
         return
 
     # Check if pip is available
-    result = subprocess.run(
-        [str(venv_python), "-m", "pip", "--version"],
-        capture_output=True
-    )
+    result = subprocess.run([str(venv_python), "-m", "pip", "--version"], capture_output=True)
     if result.returncode == 0:
         logger.info("pip is available in library venv")
         return
 
     logger.info("pip not found in library venv, installing with ensurepip...")
-    subprocess.check_call([
-        str(venv_python), "-m", "ensurepip", "--upgrade"
-    ])
+    subprocess.check_call([str(venv_python), "-m", "ensurepip", "--upgrade"])
     logger.info("pip installed successfully")
 
 
@@ -74,20 +68,22 @@ def _install_perception_models_no_deps() -> None:
     _ensure_pip_installed()
 
     # Check if already installed
-    result = subprocess.run(
-        [str(venv_python), "-c", "import core"],
-        capture_output=True
-    )
+    result = subprocess.run([str(venv_python), "-c", "import core"], capture_output=True)
     if result.returncode == 0:
         logger.info("perception-models already installed")
         return
 
     logger.info("Installing perception-models with --no-deps (Windows workaround)...")
-    subprocess.check_call([
-        str(venv_python), "-m", "pip", "install",
-        "--no-deps",
-        "perception-models@git+https://github.com/facebookresearch/perception_models@unpin-deps"
-    ])
+    subprocess.check_call(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "perception-models@git+https://github.com/facebookresearch/perception_models@unpin-deps",
+        ]
+    )
     logger.info("perception-models installed successfully")
 
 
@@ -119,7 +115,7 @@ def _setup_torchcodec_mock() -> None:
     (torchcodec_dir / "__init__.py").write_text('__version__ = "0.0.0.dev0"\n')
 
     # decoders/__init__.py
-    (torchcodec_dir / "decoders" / "__init__.py").write_text('''
+    (torchcodec_dir / "decoders" / "__init__.py").write_text("""
 class VideoDecoder:
     def __init__(self, *args, **kwargs):
         raise NotImplementedError(
@@ -133,16 +129,16 @@ class AudioDecoder:
             "AudioDecoder from torchcodec is not available on Windows. "
             "Audio loading via torchaudio should still work for most use cases."
         )
-''')
+""")
 
     # encoders/__init__.py
-    (torchcodec_dir / "encoders" / "__init__.py").write_text('''
+    (torchcodec_dir / "encoders" / "__init__.py").write_text("""
 class AudioEncoder:
     def __init__(self, *args, **kwargs):
         raise NotImplementedError(
             "AudioEncoder requires torchcodec which is not available on Windows."
         )
-''')
+""")
 
     # Create dist-info for package metadata
     dist_info = site_packages / "torchcodec-0.0.0.dev0.dist-info"
@@ -212,6 +208,7 @@ def _patch_transformers_version_check() -> None:
     try:
         # Patch importlib.metadata.version to return a compatible version for huggingface_hub
         import importlib.metadata
+
         original_version = importlib.metadata.version
 
         def patched_version(package_name):
@@ -242,8 +239,9 @@ def _clear_cached_modules() -> None:
     # Clear importlib.metadata cache so version checks use library venv packages
     try:
         import importlib.metadata
+
         # Clear the distributions cache
-        if hasattr(importlib.metadata, '_adapters'):
+        if hasattr(importlib.metadata, "_adapters"):
             # Python 3.11+
             importlib.metadata._adapters.wrap_mtime_invalidator.cache_clear()
         # Clear sys.path_importer_cache entries that might cache wrong locations
@@ -334,9 +332,7 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         self._update_submodules_recursive(git_repo_root)
 
         if not sam_audio_submodule_dir.exists() or not any(sam_audio_submodule_dir.iterdir()):
-            raise RuntimeError(
-                f"Submodule initialization failed: {sam_audio_submodule_dir} is empty or does not exist"
-            )
+            raise RuntimeError(f"Submodule initialization failed: {sam_audio_submodule_dir} is empty or does not exist")
 
         logger.info("sam-audio submodule initialized successfully")
         return sam_audio_submodule_dir
@@ -358,18 +354,13 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         venv_python = self._get_venv_python_path()
 
         # Check if pip is available
-        result = subprocess.run(
-            [str(venv_python), "-m", "pip", "--version"],
-            capture_output=True
-        )
+        result = subprocess.run([str(venv_python), "-m", "pip", "--version"], capture_output=True)
         if result.returncode == 0:
             logger.info("pip is available in library venv")
             return
 
         logger.info("pip not found in library venv, installing with ensurepip...")
-        subprocess.check_call([
-            str(venv_python), "-m", "ensurepip", "--upgrade"
-        ])
+        subprocess.check_call([str(venv_python), "-m", "ensurepip", "--upgrade"])
         logger.info("pip installed successfully")
 
     def _install_sam_audio(self, sam_audio_path: Path) -> None:
@@ -380,18 +371,11 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         self._ensure_pip_installed()
 
         # Check if already installed in library venv
-        result = subprocess.run(
-            [str(venv_python), "-c", "import sam_audio"],
-            capture_output=True
-        )
+        result = subprocess.run([str(venv_python), "-c", "import sam_audio"], capture_output=True)
         if result.returncode == 0:
             logger.info("sam_audio already installed in library venv")
             return
 
         logger.info(f"Installing sam_audio from {sam_audio_path}...")
-        subprocess.check_call([
-            str(venv_python), "-m", "pip", "install",
-            "--no-deps",
-            str(sam_audio_path)
-        ])
+        subprocess.check_call([str(venv_python), "-m", "pip", "install", "--no-deps", str(sam_audio_path)])
         logger.info("sam_audio installed successfully")

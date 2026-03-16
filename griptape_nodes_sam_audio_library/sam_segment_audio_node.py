@@ -3,12 +3,11 @@ import logging
 
 import torch
 import torchaudio
-
+from griptape.artifacts import AudioArtifact, AudioUrlArtifact
 from griptape_nodes.exe_types.core_types import Parameter, ParameterMode
 from griptape_nodes.exe_types.node_types import SuccessFailureNode
 from griptape_nodes.exe_types.param_components.huggingface.huggingface_repo_parameter import HuggingFaceRepoParameter
 from griptape_nodes.traits.options import Options
-from griptape.artifacts import AudioArtifact, AudioUrlArtifact
 
 logger = logging.getLogger("sam_audio_library")
 
@@ -308,9 +307,7 @@ class SamSegmentAudioNode(SuccessFailureNode):
                 self.status_component.append_to_result_details(
                     f"Resampling from {input_sample_rate}Hz to {processor.audio_sampling_rate}Hz"
                 )
-                waveform = torchaudio.functional.resample(
-                    waveform, input_sample_rate, processor.audio_sampling_rate
-                )
+                waveform = torchaudio.functional.resample(waveform, input_sample_rate, processor.audio_sampling_rate)
 
             # Build processor inputs
             anchors = self._build_anchors()
