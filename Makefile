@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 LIBRARY_JSON := griptape_nodes_sam_audio_library/griptape-nodes-library.json
 
 .PHONY: version/get
