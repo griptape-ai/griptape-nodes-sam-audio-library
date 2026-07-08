@@ -29,8 +29,8 @@ cd $(gtn config show | grep workspace_directory | cut -d'"' -f4)
 # On Windows, the default workspace directory is a directory named GriptapeNodes in your home directory.
 # Usually this is C:\Users\<username>\GriptapeNodes
 
-# Clone the repository
-git clone https://github.com/griptape-ai/griptape-nodes-sam-audio-library.git
+# Clone the repository (with submodules)
+git clone --recurse-submodules https://github.com/griptape-ai/griptape-nodes-sam-audio-library.git
 ```
 
 2. Install dependencies:
