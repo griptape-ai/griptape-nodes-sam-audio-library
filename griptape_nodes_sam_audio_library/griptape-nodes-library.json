@@ -5,7 +5,7 @@
   "metadata": {
     "author": "Griptape, Inc.",
     "description": "SAM Audio sound isolation for Griptape Nodes.",
-    "library_version": "0.1.2",
+    "library_version": "0.2.0",
     "engine_version": "0.66.2",
     "tags": ["Griptape", "AI", "Audio"],
     "dependencies": {
