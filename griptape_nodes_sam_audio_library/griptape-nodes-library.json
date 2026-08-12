@@ -10,7 +10,6 @@
     "tags": ["Griptape", "AI", "Audio"],
     "dependencies": {
       "pip_dependencies": [
-        "pygit2",
         "xformers",
         "torch<2.9",
         "torchaudio<2.9",
