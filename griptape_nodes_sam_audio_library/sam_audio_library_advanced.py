@@ -229,32 +229,35 @@ def _clear_cached_modules() -> None:
     by the main griptape-nodes engine BEFORE the library venv is added to sys.path.
     Once cached in sys.modules, Python reuses them regardless of path order.
 
-    We also clear importlib.metadata caches because transformers uses it for
-    version checking, and it caches package distributions from the wrong venv.
+    We also invalidate the importlib caches because transformers uses importlib.metadata
+    for version checking, and it caches package distributions from the wrong venv.
+
+    Only third-party modules are dropped from sys.modules. importlib and its submodules must
+    stay cached: deleting importlib.metadata would discard the version patch applied above, and
+    deleting importlib._bootstrap makes Python recompile the import machinery from source
+    without the interpreter-injected `sys` global, which breaks every later import in the engine
+    process with "NameError: name 'sys' is not defined".
     """
     # Patch version check FIRST before clearing modules
     _patch_transformers_version_check()
 
-    # Clear importlib.metadata cache so version checks use library venv packages
+    # Invalidate the importlib caches so version checks see the library venv packages
     try:
         import importlib.metadata
 
-        # Clear the distributions cache
-        if hasattr(importlib.metadata, "_adapters"):
-            # Python 3.11+
-            importlib.metadata._adapters.wrap_mtime_invalidator.cache_clear()
+        # Drop the cached distribution search paths
+        importlib.metadata.MetadataPathFinder.invalidate_caches()
+        importlib.invalidate_caches()
         # Clear sys.path_importer_cache entries that might cache wrong locations
         sys.path_importer_cache.clear()
-        logger.info("Cleared importlib.metadata and sys.path_importer_cache")
+        logger.info("Invalidated importlib caches and cleared sys.path_importer_cache")
     except Exception as e:
-        logger.warning(f"Could not clear importlib.metadata cache: {e}")
+        logger.warning(f"Could not invalidate importlib caches: {e}")
 
     # Prefixes of modules to clear
     prefixes_to_clear = [
         "huggingface_hub",
         "transformers",
-        "importlib.metadata",
-        "importlib._bootstrap",
     ]
 
     modules_to_clear = []
