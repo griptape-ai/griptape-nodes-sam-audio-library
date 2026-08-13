@@ -5,12 +5,11 @@
   "metadata": {
     "author": "Griptape, Inc.",
     "description": "SAM Audio sound isolation for Griptape Nodes.",
-    "library_version": "0.1.1",
+    "library_version": "0.2.0",
     "engine_version": "0.66.2",
     "tags": ["Griptape", "AI", "Audio"],
     "dependencies": {
       "pip_dependencies": [
-        "pygit2",
         "xformers",
         "torch<2.9",
         "torchaudio<2.9",
