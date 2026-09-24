@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-griptape-nodes-engine = { git = "https://github.com/griptape-ai/griptape-nodes-engine", rev = "main" }
+griptape-nodes-engine = { git = "https://github.com/griptape-ai/griptape-nodes-engine", rev = "latest" }
 
 [build-system]
 requires = ["hatchling"]
