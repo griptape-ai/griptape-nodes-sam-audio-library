@@ -1,6 +1,6 @@
 {
     "name": "Griptape Nodes SAM Audio Library",
-    "library_schema_version": "0.3.0",
+    "library_schema_version": "0.12.0",
     "advanced_library_path": "sam_audio_library_advanced.py",
     "metadata": {
         "author": "Griptape, Inc.",
@@ -13,7 +13,8 @@
             "Audio"
         ],
         "dependencies": {
-            "pip_dependencies": [
+            "pip_dependencies": [],
+            "pip_dependencies_exec": [
                 "xformers",
                 "torch<2.9",
                 "torchaudio<2.9",
