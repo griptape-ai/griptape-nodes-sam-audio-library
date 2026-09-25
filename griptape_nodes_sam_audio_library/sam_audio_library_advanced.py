@@ -19,11 +19,7 @@ def _get_library_venv() -> Path:
     `.venv` is deliberately not spliced there. So an install into `.venv` would be invisible in
     the process that actually runs the nodes.
     """
-    library_root = Path(__file__).parent
-    execution_venv = library_root / ".venv-exec"
-    if execution_venv.exists():
-        return execution_venv
-    return library_root / ".venv"
+    return Path(__file__).parent / ".venv-exec"
 
 
 def _get_library_venv_python() -> Path:
@@ -185,9 +181,9 @@ def _patch_sam_audio_for_new_huggingface_hub() -> None:
     try:
         from sam_audio.model.base import BaseModel
     except ImportError:
-        # Expected on the orchestrator, where sam_audio lives in the execution environment that
-        # only a worker receives. The patch is needed where from_pretrained runs, which is there.
-        logger.debug("sam_audio not importable in this process, skipping huggingface-hub compatibility patch")
+        # Only the worker reaches this and the patch is needed there, so an unimportable sam_audio
+        # is a broken execution environment, not a process with no use for the patch.
+        logger.warning("sam_audio not importable, skipping huggingface-hub compatibility patch")
         return
 
     original_from_pretrained = BaseModel._from_pretrained
