@@ -28,9 +28,7 @@
                 "dacvae@git+https://github.com/facebookresearch/dacvae.git",
                 "imagebind@git+https://github.com/facebookresearch/ImageBind.git",
                 "laion-clap@git+https://github.com/lematt1991/CLAP.git",
-                "perception-models@git+https://github.com/facebookresearch/perception_models@unpin-deps",
-                "torchcodec",
-                "sam_audio@git+https://github.com/facebookresearch/sam-audio.git@a2030581715f7aafebc84c1aaddd13f4706f33d6"
+                "setuptools<82"
             ],
             "pip_install_flags": [
                 "--extra-index-url",
