@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import io
 import logging
+from typing import TYPE_CHECKING
 
-import torch
-import torchaudio
 from griptape.artifacts import AudioArtifact, AudioUrlArtifact
 from griptape_nodes.exe_types.core_types import Parameter, ParameterMode
 from griptape_nodes.exe_types.node_types import SuccessFailureNode
 from griptape_nodes.exe_types.param_components.huggingface.huggingface_repo_parameter import HuggingFaceRepoParameter
 from griptape_nodes.traits.options import Options
+
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger("sam_audio_library")
 
@@ -204,15 +208,7 @@ class SamSegmentAudioNode(SuccessFailureNode):
         """Validate that the HuggingFace model is available."""
         return self._model_repo_parameter.validate_before_node_run()
 
-    def _get_device(self) -> str:
-        """Get the appropriate device for inference."""
-        if torch.cuda.is_available():
-            return "cuda"
-        elif torch.backends.mps.is_available():
-            return "mps"
-        return "cpu"
-
-    def _load_model(self, model_id: str) -> None:
+    def _load_model(self, model_id: str, device: str) -> None:
         """Load the SAM Audio model and processor."""
         from sam_audio import SAMAudio, SAMAudioProcessor
 
@@ -221,7 +217,6 @@ class SamSegmentAudioNode(SuccessFailureNode):
             return
 
         logger.info(f"Loading SAM Audio model: {model_id}")
-        device = self._get_device()
 
         SamSegmentAudioNode._processor = SAMAudioProcessor.from_pretrained(model_id)
         SamSegmentAudioNode._model = SAMAudio.from_pretrained(model_id)
@@ -232,6 +227,8 @@ class SamSegmentAudioNode(SuccessFailureNode):
 
     def _audio_artifact_to_tensor(self, artifact: AudioArtifact | AudioUrlArtifact) -> tuple[torch.Tensor, int]:
         """Convert an AudioArtifact or AudioUrlArtifact to a torch tensor."""
+        import torchaudio
+
         if isinstance(artifact, AudioUrlArtifact):
             # Download URL content to bytes, then load from buffer
             audio_bytes = artifact.to_bytes()
@@ -259,6 +256,8 @@ class SamSegmentAudioNode(SuccessFailureNode):
 
     def _tensor_to_audio_artifact(self, tensor: torch.Tensor, sample_rate: int) -> AudioArtifact:
         """Convert a torch tensor to an AudioArtifact."""
+        import torchaudio
+
         # Ensure tensor is on CPU and has correct shape
         if tensor.dim() == 1:
             tensor = tensor.unsqueeze(0)
@@ -275,6 +274,9 @@ class SamSegmentAudioNode(SuccessFailureNode):
         await self._process()
 
     async def _process(self) -> None:
+        import torch
+        import torchaudio
+
         self._clear_execution_status()
 
         model_id = self.get_parameter_value("model")
@@ -290,14 +292,15 @@ class SamSegmentAudioNode(SuccessFailureNode):
             )
             return
 
+        device = self.execution_device
+
         try:
             # Load model
             self.status_component.append_to_result_details(f"Loading model: {model_id}")
-            self._load_model(model_id)
+            self._load_model(model_id, device)
 
             model = SamSegmentAudioNode._model
             processor = SamSegmentAudioNode._processor
-            device = self._get_device()
 
             # Convert artifact to tensor
             waveform, input_sample_rate = self._audio_artifact_to_tensor(audio_artifact)
