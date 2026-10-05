@@ -1,3 +1,4 @@
 .env
 .venv
+.venv-exec
 example_nodes_template/__pycache__/

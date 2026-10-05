@@ -5,29 +5,41 @@ from pathlib import Path
 
 from griptape_nodes.node_library.advanced_node_library import AdvancedNodeLibrary
 from griptape_nodes.node_library.library_registry import Library, LibrarySchema
+from griptape_nodes.retained_mode.griptape_nodes import GriptapeNodes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sam_audio_library")
 
 
+def _get_library_venv() -> Path:
+    """Get the venv that anything installed here has to land in.
+
+    The engine builds `.venv-exec` beside the manifest whenever the library declares execution
+    dependencies, and a worker receives only that directory on its import path -- the edit-time
+    `.venv` is deliberately not spliced there. So an install into `.venv` would be invisible in
+    the process that actually runs the nodes.
+    """
+    return Path(__file__).parent / ".venv-exec"
+
+
 def _get_library_venv_python() -> Path:
     """Get the path to the library venv's Python executable."""
-    library_root = Path(__file__).parent
+    venv = _get_library_venv()
     if sys.platform == "win32":
-        venv_python = library_root / ".venv" / "Scripts" / "python.exe"
+        venv_python = venv / "Scripts" / "python.exe"
     else:
-        venv_python = library_root / ".venv" / "bin" / "python"
+        venv_python = venv / "bin" / "python"
     return venv_python
 
 
 def _get_library_site_packages() -> Path:
     """Get the path to the library venv's site-packages."""
-    library_root = Path(__file__).parent
+    venv = _get_library_venv()
     if sys.platform == "win32":
-        return library_root / ".venv" / "Lib" / "site-packages"
+        return venv / "Lib" / "site-packages"
     else:
         # Find the python version directory
-        lib_dir = library_root / ".venv" / "lib"
+        lib_dir = venv / "lib"
         if lib_dir.exists():
             for p in lib_dir.iterdir():
                 if p.name.startswith("python"):
@@ -54,7 +66,12 @@ def _ensure_pip_installed() -> None:
 
 
 def _install_perception_models_no_deps() -> None:
-    """Install perception-models with --no-deps to skip torchcodec dependency on Windows."""
+    """Install perception-models without its dependency closure.
+
+    It cannot be declared in `pip_dependencies_exec`: its closure pulls a real `torchcodec`, which
+    would displace the mock below, and `pip_install_flags` applies to every requirement in both
+    sets so `--no-deps` cannot be scoped to this one package.
+    """
     if sys.platform != "win32":
         return
 
@@ -87,7 +104,13 @@ def _install_perception_models_no_deps() -> None:
 
 
 def _setup_torchcodec_mock() -> None:
-    """Create mock torchcodec package files for Windows (torchcodec has no Windows wheels)."""
+    """Create mock torchcodec package files for Windows.
+
+    `sam_audio.processor` imports `torchcodec.decoders` at module scope, so the import has to
+    resolve even though no real torchcodec loads on Windows beside torch 2.8: the builds made for
+    it (0.6, 0.7) need FFmpeg 4-7 shared libraries Windows does not ship, and the newer builds a
+    resolver picks instead fail against its ABI with WinError 127.
+    """
     if sys.platform != "win32":
         return
 
@@ -158,7 +181,9 @@ def _patch_sam_audio_for_new_huggingface_hub() -> None:
     try:
         from sam_audio.model.base import BaseModel
     except ImportError:
-        logger.warning("sam_audio not yet importable, skipping huggingface-hub compatibility patch")
+        # Only the worker reaches this and the patch is needed there, so an unimportable sam_audio
+        # is a broken execution environment, not a process with no use for the patch.
+        logger.warning("sam_audio not importable, skipping huggingface-hub compatibility patch")
         return
 
     original_from_pretrained = BaseModel._from_pretrained
@@ -198,83 +223,6 @@ def _patch_sam_audio_for_new_huggingface_hub() -> None:
     logger.info("Patched sam_audio BaseModel for huggingface-hub >= 1.0 compatibility")
 
 
-def _patch_transformers_version_check() -> None:
-    """Patch transformers to skip the huggingface_hub version check.
-
-    Transformers checks huggingface_hub version at import time using importlib.metadata,
-    which may find the wrong version from the main venv instead of library venv.
-    """
-    try:
-        # Patch importlib.metadata.version to return a compatible version for huggingface_hub
-        import importlib.metadata
-
-        original_version = importlib.metadata.version
-
-        def patched_version(package_name):
-            if package_name == "huggingface-hub" or package_name == "huggingface_hub":
-                # Return a version that satisfies transformers' requirement
-                return "0.36.0"
-            return original_version(package_name)
-
-        importlib.metadata.version = patched_version
-        logger.info("Patched importlib.metadata.version to report huggingface_hub 0.36.0")
-    except Exception as e:
-        logger.warning(f"Could not patch transformers version check: {e}")
-
-
-def _clear_cached_modules() -> None:
-    """Clear cached modules so they get re-imported from the library venv.
-
-    This is necessary because huggingface_hub and transformers may be imported
-    by the main griptape-nodes engine BEFORE the library venv is added to sys.path.
-    Once cached in sys.modules, Python reuses them regardless of path order.
-
-    We also invalidate the importlib caches because transformers uses importlib.metadata
-    for version checking, and it caches package distributions from the wrong venv.
-
-    Only third-party modules are dropped from sys.modules. importlib and its submodules must
-    stay cached: deleting importlib.metadata would discard the version patch applied above, and
-    deleting importlib._bootstrap makes Python recompile the import machinery from source
-    without the interpreter-injected `sys` global, which breaks every later import in the engine
-    process with "NameError: name 'sys' is not defined".
-    """
-    # Patch version check FIRST before clearing modules
-    _patch_transformers_version_check()
-
-    # Invalidate the importlib caches so version checks see the library venv packages
-    try:
-        import importlib.metadata
-
-        # Drop the cached distribution search paths
-        importlib.metadata.MetadataPathFinder.invalidate_caches()
-        importlib.invalidate_caches()
-        # Clear sys.path_importer_cache entries that might cache wrong locations
-        sys.path_importer_cache.clear()
-        logger.info("Invalidated importlib caches and cleared sys.path_importer_cache")
-    except Exception as e:
-        logger.warning(f"Could not invalidate importlib caches: {e}")
-
-    # Prefixes of modules to clear
-    prefixes_to_clear = [
-        "huggingface_hub",
-        "transformers",
-    ]
-
-    modules_to_clear = []
-
-    for module_name in list(sys.modules.keys()):
-        for prefix in prefixes_to_clear:
-            if module_name == prefix or module_name.startswith(f"{prefix}."):
-                modules_to_clear.append(module_name)
-                break
-
-    if modules_to_clear:
-        logger.info(f"Clearing {len(modules_to_clear)} cached modules to use library venv versions")
-        for module_name in modules_to_clear:
-            del sys.modules[module_name]
-        logger.info(f"Cleared module prefixes: {', '.join(prefixes_to_clear)}")
-
-
 class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
     """Advanced library implementation for SAM Audio."""
 
@@ -283,9 +231,10 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
         msg = f"Starting to load nodes for '{library_data.name}' library..."
         logger.info(msg)
 
-        # Clear cached modules so we use the library venv versions
-        # This MUST happen before any imports of huggingface_hub or transformers
-        _clear_cached_modules()
+        # The mock and installs below populate the execution environment, which only the worker
+        # imports; the orchestrator has no use for them and must not run them.
+        if not GriptapeNodes.LibraryManager().is_worker:
+            return
 
         # Set up torchcodec mock for Windows before any sam_audio imports
         _setup_torchcodec_mock()
@@ -334,36 +283,22 @@ class SamAudioLibraryAdvanced(AdvancedNodeLibrary):
 
     def _get_venv_python_path(self) -> Path:
         """Get the path to the library venv's Python executable."""
-        library_root = self._get_library_root()
-        if sys.platform == "win32":
-            venv_python = library_root / ".venv" / "Scripts" / "python.exe"
-        else:
-            venv_python = library_root / ".venv" / "bin" / "python"
-
+        venv_python = _get_library_venv_python()
         if not venv_python.exists():
             raise RuntimeError(f"Library venv Python not found at {venv_python}")
         return venv_python
 
-    def _ensure_pip_installed(self) -> None:
-        """Ensure pip is installed in the library venv."""
-        venv_python = self._get_venv_python_path()
-
-        # Check if pip is available
-        result = subprocess.run([str(venv_python), "-m", "pip", "--version"], capture_output=True)
-        if result.returncode == 0:
-            logger.info("pip is available in library venv")
-            return
-
-        logger.info("pip not found in library venv, installing with ensurepip...")
-        subprocess.check_call([str(venv_python), "-m", "ensurepip", "--upgrade"])
-        logger.info("pip installed successfully")
-
     def _install_sam_audio(self, sam_audio_path: Path) -> None:
-        """Install sam_audio from the submodule into the library venv."""
+        """Install sam_audio from the submodule into the library venv.
+
+        Installed from the submodule rather than declared in `pip_dependencies_exec` because its
+        own metadata requires `perception-models` and `torchcodec`, and a real torchcodec would
+        displace the Windows mock.
+        """
         venv_python = self._get_venv_python_path()
 
         # Ensure pip is available first
-        self._ensure_pip_installed()
+        _ensure_pip_installed()
 
         # Check if already installed in library venv
         result = subprocess.run([str(venv_python), "-c", "import sam_audio"], capture_output=True)
