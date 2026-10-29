@@ -10,4 +10,4 @@ the `library_version` in `griptape_nodes_sam_audio_library/griptape-nodes-librar
 
 <!-- Entries go in changelog.d/, one file each. See changelog.d/README.md. -->
 
-[Unreleased]: https://github.com/griptape-ai/griptape-nodes-sam-audio-library/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/griptape-ai/griptape-nodes-sam-audio-library/compare/412e91dfec041af9745814ff46d0bdb098f7961a...HEAD
