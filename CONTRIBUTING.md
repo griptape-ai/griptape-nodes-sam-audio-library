@@ -35,6 +35,12 @@ make check/types    # pyright
 make check/changelog # validate CHANGELOG.md and changelog.d entries
 ```
 
+### Tests
+
+```bash
+make test
+```
+
 ### Fixing Issues
 
 Auto-fix formatting and linting issues:
@@ -65,7 +71,7 @@ Write for the person updating the library: which node changed, what they will no
 
 ## CI
 
-The CI workflow runs `make check` on every pull request and push to `main`. PRs must pass all checks before merging.
+The CI workflow runs `make check` and `make test` on every pull request and push to `main`. PRs must pass all checks before merging.
 
 ## Releases
 

@@ -129,6 +129,10 @@ check/changelog: ## Check CHANGELOG.md and the changelog.d entries follow Keep a
 changelog: ## Print [Unreleased] as the next version will show it, changelog.d entries folded in.
 	@uv run --no-project python scripts/changelog.py render
 
+.PHONY: test
+test: ## Run tests.
+	@uv run pytest
+
 .DEFAULT_GOAL := help
 .PHONY: help
 help: ## Print Makefile help text.
